@@ -240,7 +240,7 @@ lock_release(struct lock *lock)
         if(lock->calling_thread==curthread)
         {
         	lock->calling_thread=NULL;
-        	
+        	wchan_wakeone(lock->mutex_lock);
         
 }
 
