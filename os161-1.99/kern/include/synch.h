@@ -76,6 +76,11 @@ struct lock {
         char *lk_name;
         // add what you need here
         // (don't forget to mark things volatile as needed)
+        //volatile int  recurrent_count; //To support reentrancy
+        struct wchan *mutex_wchan;
+		struct spinlock mutex_spinLock; 
+		struct thread * calling_thread;
+		
 };
 
 struct lock *lock_create(const char *name);

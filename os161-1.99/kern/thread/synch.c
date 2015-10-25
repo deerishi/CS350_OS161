@@ -165,6 +165,16 @@ lock_create(const char *name)
         
         // add stuff here as needed
         
+        lock->mutex_wchan=wchan_create(lock->lk_name); //create a wait channel for the lock. This is the difference between locks and spinlocks. lock put the other thread to sleep.
+        if (lock->mutex_wchan == NULL) {
+		kfree(lock->lk_name);
+		kfree(lock   );
+		return NULL;
+	}
+       // lock->recurrent_count=0; //Set the initial recursive lock count to 0. We are implementing a recursive lock ( i.e. a re entrant lock ), so that if a thread calls itself then 
+        spinlock_init(&lock->mutex_spinLock);
+        lock->calling_thread=curthread; // we initialize the calling thread's variable to the current thread
+        
         return lock;
 }
 
@@ -172,9 +182,14 @@ void
 lock_destroy(struct lock *lock)
 {
         KASSERT(lock != NULL);
-
+		KASSERT(lock->calling_thread==curthread);  //can only the callingg thread should be able to destry the lock, else we can wait
         // add stuff here as needed
         
+        
+        //l I dont know what cleanup is yet, to figure that out 
+        
+        spinlock_cleanup(&lock->mutex_spinLock);
+        wchan_destroy(lock->mutex_wchan);
         kfree(lock->lk_name);
         kfree(lock);
 }
@@ -183,8 +198,36 @@ void
 lock_acquire(struct lock *lock)
 {
         // Write this
-
+		//KASSERT(lock->calling_hread==curthread);  //can only the callingg thread should be able to destry the lock, else we can wait
         (void)lock;  // suppress warning until code gets written
+        KASSERT(lock!=NULL);
+        KASSERT(lock->calling_thread!=curthread);// the same thread should not call itsef , since we do not support re-entrancy 
+        
+        
+        /*
+         * May not block in an interrupt handler.
+         *
+         * For robustness, always check, even if we can actually
+         * complete the the lock acquire  without blocking.
+         */
+        KASSERT(curthread->t_in_interrupt == false);
+        spinlock_acquire(&lock->mutex_spinLock);
+        if(lock->calling_thread==NULL)
+        {
+        
+        	//spinlock_acquire(&lock->mutex_spinLock); //We first acquire the spinlock which is being set by test ad set by this function
+       	 	lock->calling_thread=curthread; // lock the calling thread . What if the calling thread calls itslef, then we would have deadlock
+        	spinlock_release(&lock->mutex_spinLock); //wy should i relese the spinlocks, makes no sense to do in locks Release the Spinlock
+        }
+        else if(lock->calling_thread!=curthread)
+        {
+        	wchan_lock(lock->mutex_wchan);
+        	spinlock_release(&lock->mutex_spinLock);
+        	wchan_sleep(lock->mutex_wchan);
+        }
+        	
+        	
+        	
 }
 
 void
@@ -193,7 +236,14 @@ lock_release(struct lock *lock)
         // Write this
 
         (void)lock;  // suppress warning until code gets written
+        spinlock_acquire(&lock->mutex_spinLock);
+        if(lock->calling_thread==curthread)
+        {
+        	lock->calling_thread=NULL;
+        	
+        
 }
+
 
 bool
 lock_do_i_hold(struct lock *lock)

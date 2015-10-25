@@ -269,7 +269,8 @@ cvtestthread(void *junk, unsigned long num)
 
 	for (i=0; i<NCVLOOPS; i++) {
 		lock_acquire(testlock);
-		while (testval1 != num) {
+		while (testval1 != num) 
+		{
 			gettime(&secs1, &nsecs1);
 			cv_wait(testcv, testlock);
 			gettime(&secs2, &nsecs2);
