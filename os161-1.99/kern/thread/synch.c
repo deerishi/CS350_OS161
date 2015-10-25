@@ -151,7 +151,7 @@ struct lock *
 lock_create(const char *name)
 {
         struct lock *lock;
-
+		
         lock = kmalloc(sizeof(struct lock));
         if (lock == NULL) {
                 return NULL;
@@ -182,6 +182,7 @@ void
 lock_destroy(struct lock *lock)
 {
         KASSERT(lock != NULL);
+        KASSERT(curthread->t_in_interrupt == false);
 		KASSERT(lock->calling_thread==curthread);  //can only the callingg thread should be able to destry the lock, else we can wait
         // add stuff here as needed
         
@@ -222,9 +223,10 @@ lock_acquire(struct lock *lock)
         else if(lock->calling_thread!=curthread)
         {
         	wchan_lock(lock->mutex_wchan);
-        	spinlock_release(&lock->mutex_spinLock);
+			spinlock_release(&lock->mutex_spinLock);
         	wchan_sleep(lock->mutex_wchan);
         }
+        
         	
         	
         	
@@ -234,13 +236,19 @@ void
 lock_release(struct lock *lock)
 {
         // Write this
-
+		KASSERT(lock!=NULL);
         (void)lock;  // suppress warning until code gets written
         spinlock_acquire(&lock->mutex_spinLock);
         if(lock->calling_thread==curthread)
         {
         	lock->calling_thread=NULL;
         	wchan_wakeone(lock->mutex_lock);
+        	spinlock_release(&lock->mutex_spinLock);
+        }
+        else
+        {
+        	
+        	
         
 }
 
